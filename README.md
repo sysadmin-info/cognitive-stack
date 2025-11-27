@@ -1,4 +1,4 @@
-# Cognitive Stack
+# Cognitive Stack - Polish version (English version below)
 
 CLI do orkiestracji wielu modeli LLM z analizą wariancji i protokołami debiasingu.
 
@@ -87,3 +87,98 @@ cp .env.example .env
 ### v1.0.0
 
 - Pierwsza wersja
+
+# Cognitive Stack - English version
+
+CLI for orchestrating multiple LLM models with variance analysis and debiasing protocols.
+
+## Installation
+
+```bash
+cd cognitive-stack
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env and add API keys
+```
+
+## Usage
+
+```bash
+# Basic query
+./council.py "Your question"
+
+# With a specific expert
+./council.py "Question" --expert cost_cutter
+
+# With debiasing
+./council.py "Question" --debias premortem,counterargs
+
+# Interactive mode
+./council.py --interactive
+
+# List experts
+./council.py --list-experts
+
+# List debiasing techniques
+./council.py --list-debias
+```
+
+## Configuration
+
+* `config/user_model.yaml` – Your profile (goals, constraints, communication style)
+* `config/experts.yaml` – Expert personas
+* `config/providers.yaml` – API configuration (models, timeouts)
+
+## Available Experts
+
+* `strategist` – long-term thinking
+* `cost_cutter` – pragmatic, ROI-focused
+* `security_auditor` – threat modeling
+* `operator` – SRE, day-2 operations
+* `devils_advocate` – finds flaws
+* `coach` – human factor
+
+## Debiasing Techniques
+
+* `premortem` – what went wrong a year later?
+* `counterargs` – strongest counterarguments
+* `uncertainty` – confidence levels
+* `assumptions` – hidden assumptions
+* `reference_class` – statistical comparison
+* `change_mind` – what would change your mind?
+
+## Changelog
+
+### v1.1.0
+
+**Security enhancements:**
+
+* Expanded sanitization patterns for API keys (including `sk-proj-*`)
+* Query max length validation
+* Upper timeout limit (max 5 minutes)
+
+**Bug fixes:**
+
+* Fix: configuration mutation when creating providers (now using deepcopy)
+* Fix: safe API response parsing (no KeyError on format change)
+* Fix: proper HTTP client shutdown after execution
+* Added retry logic with exponential backoff
+* Google Gemini: using native `systemInstruction` instead of workaround
+
+**Improvements:**
+
+* Parallel debiasing (faster execution)
+* HTTP connection pooling (reused connections)
+* Better error messages
+* New CLI options: `--list-debias`, `--verbose`, `--version`
+* Full type hints and docstrings
+* Ctrl+C handling in interactive mode
+
+### v1.0.0
+
+* Initial release
+
+```
