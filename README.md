@@ -180,5 +180,3 @@ cp .env.example .env
 ### v1.0.0
 
 * Initial release
-
-```
