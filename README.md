@@ -62,6 +62,11 @@ cp .env.example .env
 
 ## Changelog
 
+### v1.2.1
+
+**Poprawki SonarQube:**
+- `_handle_command` zmieniono na funkcję void (usunięto zbędny return zawsze zwracający True)
+
 ### v1.2.0
 
 **Poprawki SonarQube:**
@@ -161,6 +166,12 @@ cp .env.example .env
 * `change_mind` – what would change your mind?
 
 ## Changelog
+
+### v1.2.1
+
+**SonarQube fixes:**
+
+* Changed `_handle_command` to void function (removed redundant return always returning True)
 
 ### v1.2.0
 
