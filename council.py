@@ -45,7 +45,7 @@ from analyzers import (
     list_available_techniques
 )
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 # Configure logging
 logging.basicConfig(
@@ -395,13 +395,8 @@ def _show_interactive_help() -> None:
     ))
 
 
-def _handle_command(state: InteractiveState, query: str) -> bool:
-    """
-    Handle a slash command.
-    
-    Returns:
-        True if command was handled, False if it should be treated as query
-    """
+def _handle_command(state: InteractiveState, query: str) -> None:
+    """Handle a slash command."""
     parts = query.split(maxsplit=1)
     cmd = parts[0].lower()
     arg = parts[1].strip() if len(parts) > 1 else ""
@@ -409,10 +404,8 @@ def _handle_command(state: InteractiveState, query: str) -> bool:
     handler = INTERACTIVE_COMMANDS.get(cmd)
     if handler:
         handler(state, arg)
-        return True
-    
-    console.print(f"[yellow]Unknown command: {cmd}. Try /help[/yellow]")
-    return True
+    else:
+        console.print(f"[yellow]Unknown command: {cmd}. Try /help[/yellow]")
 
 
 async def interactive_mode(configs: dict) -> None:

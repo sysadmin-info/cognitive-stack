@@ -13,10 +13,9 @@ __pycache__/
 *.log
 *.tmp
 
-
 # SonarQube
 sonar-project.properties
-.scannerwork
+.scannerwork/
 
 # VSCode
-.vscode
+.vscode/
