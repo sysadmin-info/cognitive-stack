@@ -2,7 +2,7 @@
 
 CLI do orkiestracji wielu modeli LLM z analizą wariancji i protokołami debiasingu.
 
-Inspiracja: [Synthetic Cognitive Systems](https://www.linkedin.com/...) - od "zapytaj 3 modele" do zaprojektowanej inteligencji.
+Inspiracja: [Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via) - od "zapytaj 3 modele" do zaprojektowanej inteligencji.
 
 ## Instalacja
 
