@@ -63,13 +63,25 @@ class Response:
         return self.error is None
 
 
-def _safe_get(data: dict, *keys, default=None):
-    """Safely traverse nested dict keys."""
+def _safe_get(data, *keys, default=None):
+    """Safely traverse nested dict/list keys."""
     for key in keys:
-        if not isinstance(data, dict):
-            return default
-        data = data.get(key, default)
-        if data is default:
+        try:
+            if isinstance(key, int):
+                # List index
+                if isinstance(data, (list, tuple)) and len(data) > key:
+                    data = data[key]
+                else:
+                    return default
+            else:
+                # Dict key
+                if isinstance(data, dict):
+                    data = data.get(key, default)
+                    if data is default:
+                        return default
+                else:
+                    return default
+        except (KeyError, IndexError, TypeError):
             return default
     return data
 
