@@ -1,0 +1,42 @@
+# User Model - Twój profil dla systemu kognitywnego
+# Modele używają tego, żeby nie dawać generycznych rad
+
+identity:
+  name: "Adrian"
+  role: "Security Engineer / Infrastructure Automation"
+  
+context:
+  professional:
+    - "Enterprise Linux environments (RHEL, Ubuntu, SLES, Oracle Linux, AlmaLinux)"
+    - "Ansible automation, Rundeck orchestration"
+    - "FortiManager, security appliances"
+    - "Package repositories and mirror servers"
+  personal:
+    - "Homelab enthusiast"
+    - "Gravel cycling (Tabou Gravo 3.0)"
+
+goals:
+  - "Automatyzacja procesów bez vendor lock-in"
+  - "Stabilność infrastruktury ponad bleeding edge"
+  - "Zrozumienie mechanizmów, nie tylko użycie narzędzi"
+
+constraints:
+  - "Ograniczony budżet na nowe narzędzia"
+  - "Musi działać w air-gapped environments"
+  - "Kompatybilność wsteczna z legacy systems"
+
+risk_tolerance: "low-to-medium"  # conservative, low, low-to-medium, medium, high, aggressive
+
+ethics:
+  - "Open source preferred over proprietary"
+  - "Privacy-respecting solutions"
+  - "No shortcuts that compromise security"
+
+failure_modes:
+  - "Overengineering simple solutions"
+  - "Analysis paralysis przy wyborze narzędzi"
+  
+communication_style:
+  preferred_language: "pl"  # lub "en"
+  verbosity: "concise"      # verbose, normal, concise
+  technical_depth: "expert"  # beginner, intermediate, expert

@@ -1,0 +1,47 @@
+# Konfiguracja providerów API
+# Klucze ładowane z pliku .env (lub zmiennych środowiskowych)
+
+providers:
+  openai:
+    enabled: true
+    api_key: "${OPENAI_API_KEY}"
+    model: "${MODEL_NAME_OPENAI:gpt-4o}"  # fallback jeśli nie ustawiono
+    base_url: "${OPENAI_API_URL:https://api.openai.com/v1}"
+    max_tokens: 4096
+    temperature: 0.7
+
+  anthropic:
+    enabled: true
+    api_key: "${CLAUDE_API_KEY}"  # lub ANTHROPIC_API_KEY
+    model: "${MODEL_NAME_CLAUDE:claude-sonnet-4-20250514}"
+    base_url: "https://api.anthropic.com"
+    max_tokens: 4096
+    temperature: 0.7
+
+  google:
+    enabled: true
+    api_key: "${GEMINI_API_KEY}"
+    model: "${MODEL_NAME_GEMINI:gemini-1.5-pro-latest}"
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    max_tokens: 4096
+    temperature: 0.7
+
+  # Opcjonalnie: lokalne modele przez Ollama
+  ollama:
+    enabled: false
+    model: "llama3.1:70b"
+    base_url: "http://localhost:11434"
+    max_tokens: 4096
+    temperature: 0.7
+
+# Które modele używać domyślnie w radzie
+default_council:
+  - openai
+  - anthropic
+  - google
+
+# Timeout dla zapytań API (sekundy)
+timeout: 60
+
+# Retry przy błędach
+max_retries: 2
