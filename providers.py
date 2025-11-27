@@ -4,12 +4,11 @@ Async API clients for LLM providers.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Optional, ClassVar
+from typing import Any, Optional, ClassVar
 
 import httpx
 
@@ -27,6 +26,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+# Error message constants
+ERR_EMPTY_RESPONSE = "Empty response from API"
 
 # Patterns for sanitizing API keys in error messages
 _SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
@@ -63,26 +64,32 @@ class Response:
         return self.error is None
 
 
-def _safe_get(data, *keys, default=None):
-    """Safely traverse nested dict/list keys."""
+def _safe_get(data: Any, *keys, default: Any = None) -> Any:
+    """
+    Safely traverse nested dict/list structure.
+    
+    Args:
+        data: Root data structure
+        *keys: Sequence of keys (str for dict, int for list)
+        default: Value to return if path not found
+    
+    Returns:
+        Value at path or default
+    """
     for key in keys:
-        try:
-            if isinstance(key, int):
-                # List index
-                if isinstance(data, (list, tuple)) and len(data) > key:
-                    data = data[key]
-                else:
-                    return default
-            else:
-                # Dict key
-                if isinstance(data, dict):
-                    data = data.get(key, default)
-                    if data is default:
-                        return default
-                else:
-                    return default
-        except (KeyError, IndexError, TypeError):
+        if data is None:
             return default
+        
+        if isinstance(key, int) and isinstance(data, (list, tuple)):
+            data = data[key] if 0 <= key < len(data) else default
+        elif isinstance(data, dict):
+            data = data.get(key, default)
+        else:
+            return default
+        
+        if data is default:
+            return default
+    
     return data
 
 
@@ -130,6 +137,26 @@ class BaseProvider:
             await self._client.aclose()
             self._client = None
     
+    def _make_response(
+        self, 
+        content: str = "", 
+        error: Optional[str] = None,
+        usage: Optional[dict] = None
+    ) -> Response:
+        """Create a Response object for this provider."""
+        return Response(
+            provider=self.name,
+            model=self.model,
+            content=content,
+            error=error,
+            usage=usage
+        )
+    
+    def _make_error_response(self, error: Exception) -> Response:
+        """Create an error Response from an exception."""
+        logger.error(f"{self.name} error: {sanitize_error(str(error))}")
+        return self._make_response(error=sanitize_error(str(error)))
+    
     async def complete(self, messages: list[dict], system: str = "") -> Response:
         """Send completion request. Must be implemented by subclasses."""
         raise NotImplementedError
@@ -150,7 +177,7 @@ class BaseProvider:
                 resp.raise_for_status()
                 return resp
             except httpx.HTTPStatusError as e:
-                # Don't retry 4xx errors (except 429)
+                # Don't retry 4xx errors (except 429 rate limit)
                 if 400 <= e.response.status_code < 500 and e.response.status_code != 429:
                     raise
                 last_error = e
@@ -200,27 +227,12 @@ class OpenAIProvider(BaseProvider):
             usage = _safe_get(data, "usage")
             
             if not content:
-                return Response(
-                    provider=self.name, 
-                    model=self.model, 
-                    content="",
-                    error="Empty response from API"
-                )
+                return self._make_response(error=ERR_EMPTY_RESPONSE)
             
-            return Response(
-                provider=self.name, 
-                model=self.model, 
-                content=content,
-                usage=usage
-            )
+            return self._make_response(content=content, usage=usage)
+        
         except Exception as e:
-            logger.error(f"OpenAI error: {sanitize_error(str(e))}")
-            return Response(
-                provider=self.name, 
-                model=self.model, 
-                content="", 
-                error=sanitize_error(str(e))
-            )
+            return self._make_error_response(e)
 
 
 class AnthropicProvider(BaseProvider):
@@ -256,27 +268,12 @@ class AnthropicProvider(BaseProvider):
             usage = _safe_get(data, "usage")
             
             if not content:
-                return Response(
-                    provider=self.name,
-                    model=self.model,
-                    content="",
-                    error="Empty response from API"
-                )
+                return self._make_response(error=ERR_EMPTY_RESPONSE)
             
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content=content,
-                usage=usage
-            )
+            return self._make_response(content=content, usage=usage)
+        
         except Exception as e:
-            logger.error(f"Anthropic error: {sanitize_error(str(e))}")
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content="",
-                error=sanitize_error(str(e))
-            )
+            return self._make_error_response(e)
 
 
 class GoogleProvider(BaseProvider):
@@ -287,10 +284,8 @@ class GoogleProvider(BaseProvider):
     async def complete(self, messages: list[dict], system: str = "") -> Response:
         contents = []
         
-        # Gemini supports systemInstruction natively now
-        system_instruction = None
-        if system:
-            system_instruction = {"parts": [{"text": system}]}
+        # Gemini supports systemInstruction natively
+        system_instruction = {"parts": [{"text": system}]} if system else None
         
         for msg in messages:
             role = "user" if msg["role"] == "user" else "model"
@@ -312,43 +307,20 @@ class GoogleProvider(BaseProvider):
             resp = await self._request_with_retry("POST", url, json=payload)
             data = resp.json()
             
-            content = _safe_get(
-                data, "candidates", 0, "content", "parts", 0, "text", 
-                default=""
-            )
+            content = _safe_get(data, "candidates", 0, "content", "parts", 0, "text", default="")
             usage = _safe_get(data, "usageMetadata")
             
             if not content:
                 # Check for safety blocks
                 block_reason = _safe_get(data, "candidates", 0, "finishReason")
                 if block_reason and block_reason != "STOP":
-                    return Response(
-                        provider=self.name,
-                        model=self.model,
-                        content="",
-                        error=f"Response blocked: {block_reason}"
-                    )
-                return Response(
-                    provider=self.name,
-                    model=self.model,
-                    content="",
-                    error="Empty response from API"
-                )
+                    return self._make_response(error=f"Response blocked: {block_reason}")
+                return self._make_response(error=ERR_EMPTY_RESPONSE)
             
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content=content,
-                usage=usage
-            )
+            return self._make_response(content=content, usage=usage)
+        
         except Exception as e:
-            logger.error(f"Google error: {sanitize_error(str(e))}")
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content="",
-                error=sanitize_error(str(e))
-            )
+            return self._make_error_response(e)
 
 
 class OllamaProvider(BaseProvider):
@@ -382,26 +354,12 @@ class OllamaProvider(BaseProvider):
             content = _safe_get(data, "message", "content", default="")
             
             if not content:
-                return Response(
-                    provider=self.name,
-                    model=self.model,
-                    content="",
-                    error="Empty response from API"
-                )
+                return self._make_response(error=ERR_EMPTY_RESPONSE)
             
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content=content
-            )
+            return self._make_response(content=content)
+        
         except Exception as e:
-            logger.error(f"Ollama error: {sanitize_error(str(e))}")
-            return Response(
-                provider=self.name,
-                model=self.model,
-                content="",
-                error=sanitize_error(str(e))
-            )
+            return self._make_error_response(e)
 
 
 PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {

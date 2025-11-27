@@ -121,7 +121,7 @@ async def analyze_variance(
     if result.ok and result.content:
         try:
             data = _parse_json_from_text(result.content)
-        except (json.JSONDecodeError, ValueError) as e:
+        except ValueError as e:
             logger.warning(f"Failed to parse variance analysis JSON: {e}")
             data = {
                 "agreement_summary": "Nie udało się przeanalizować automatycznie. Przejrzyj odpowiedzi ręcznie.",

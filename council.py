@@ -14,8 +14,9 @@ import asyncio
 import logging
 import sys
 from copy import deepcopy
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from dotenv import load_dotenv
 
@@ -44,7 +45,7 @@ from analyzers import (
     list_available_techniques
 )
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # Configure logging
 logging.basicConfig(
@@ -95,12 +96,7 @@ def load_yaml(path: Path) -> dict:
 
 
 def load_configs() -> dict[str, dict]:
-    """
-    Load all configuration files.
-    
-    Returns:
-        Dict with user_model, experts, and providers configs
-    """
+    """Load all configuration files."""
     return {
         "user_model": load_yaml(CONFIG_DIR / "user_model.yaml"),
         "experts": load_yaml(CONFIG_DIR / "experts.yaml"),
@@ -109,16 +105,7 @@ def load_configs() -> dict[str, dict]:
 
 
 def build_system_prompt(user_model: dict, expert: Optional[dict] = None) -> str:
-    """
-    Build system prompt from user model and optional expert persona.
-    
-    Args:
-        user_model: User profile configuration
-        expert: Optional expert persona configuration
-        
-    Returns:
-        Formatted system prompt string
-    """
+    """Build system prompt from user model and optional expert persona."""
     parts = []
     
     # User context
@@ -158,15 +145,7 @@ def build_system_prompt(user_model: dict, expert: Optional[dict] = None) -> str:
 
 
 def create_providers_from_config(config: dict) -> list[BaseProvider]:
-    """
-    Create provider instances from config.
-    
-    Args:
-        config: Full configuration dict
-        
-    Returns:
-        List of initialized provider instances
-    """
+    """Create provider instances from config."""
     providers_config = config.get("providers", {})
     default_council = providers_config.get("default_council", ["openai", "anthropic"])
     timeout = providers_config.get("timeout", 60)
@@ -195,9 +174,8 @@ def create_providers_from_config(config: dict) -> list[BaseProvider]:
         except Exception as e:
             errors.append(f"{name}: {e}")
     
-    if errors:
-        for error in errors:
-            console.print(f"[yellow]Warning: {error}[/yellow]")
+    for error in errors:
+        console.print(f"[yellow]Warning: {error}[/yellow]")
     
     return providers
 
@@ -225,16 +203,7 @@ async def run_council(
     debias_techniques: Optional[list[str]] = None,
     show_variance: bool = True
 ) -> None:
-    """
-    Run the full council pipeline.
-    
-    Args:
-        query: User's question
-        configs: Loaded configuration
-        expert_name: Optional expert persona to use
-        debias_techniques: Optional list of debiasing techniques
-        show_variance: Whether to show variance analysis
-    """
+    """Run the full council pipeline."""
     # Validate query length
     if len(query) > MAX_QUERY_LENGTH:
         console.print(f"[red]Query too long. Maximum {MAX_QUERY_LENGTH} characters.[/red]")
@@ -283,10 +252,7 @@ async def run_council(
         
         if show_variance and len(successful_responses) > 1:
             console.print("[dim]Analyzing variance...[/dim]\n")
-            
-            # Use first available provider for analysis
             variance_report = await analyze_variance(successful_responses, providers[0])
-            
             console.print(Panel(
                 Markdown(variance_report.format()),
                 title="📊 Variance Analysis",
@@ -297,23 +263,15 @@ async def run_council(
         # Debiasing
         if debias_techniques and successful_responses:
             console.print("[dim]Running debiasing protocols...[/dim]\n")
-            
-            # Combine responses for debiasing
             combined = "\n\n---\n\n".join([
                 f"**{r.provider}**: {r.content}" for r in successful_responses
             ])
-            
             user_goals = configs.get("user_model", {}).get("goals", [])
             user_context = f"Goals: {user_goals}" if user_goals else ""
             
             debias_results = await run_debiasing(
-                combined,
-                debias_techniques,
-                providers[0],
-                user_context,
-                parallel=True
+                combined, debias_techniques, providers[0], user_context, parallel=True
             )
-            
             console.print(Panel(
                 Markdown(format_debiasing_results(debias_results)),
                 title="🎯 Debiasing Results",
@@ -321,12 +279,108 @@ async def run_council(
             ))
     
     finally:
-        # Always cleanup
         await close_all_providers(providers)
 
 
-async def interactive_mode(configs: dict) -> None:
-    """Interactive session mode with persistent state."""
+# ============================================================================
+# Interactive Mode - Refactored with command handlers
+# ============================================================================
+
+@dataclass
+class InteractiveState:
+    """State for interactive session."""
+    configs: dict
+    current_expert: Optional[str] = None
+    current_debias: list[str] = field(default_factory=list)
+    running: bool = True
+
+
+def _cmd_quit(state: InteractiveState, arg: str) -> None:
+    """Handle /quit and /exit commands."""
+    console.print("[dim]Goodbye![/dim]")
+    state.running = False
+
+
+def _cmd_expert(state: InteractiveState, arg: str) -> None:
+    """Handle /expert command."""
+    experts = state.configs.get("experts", {}).get("experts", {})
+    
+    if not arg:
+        state.current_expert = None
+        console.print("[dim]Expert reset to default[/dim]")
+        return
+    
+    if arg in experts:
+        state.current_expert = arg
+        console.print(f"[green]Expert set to: {arg}[/green]")
+    else:
+        console.print(f"[yellow]Unknown expert: {arg}. Use /list-experts[/yellow]")
+
+
+def _cmd_debias(state: InteractiveState, arg: str) -> None:
+    """Handle /debias command."""
+    if not arg:
+        console.print(f"[dim]Current debiasing: {state.current_debias or 'none'}[/dim]")
+        return
+    
+    techniques = [t.strip() for t in arg.split(",")]
+    available = set(list_available_techniques())
+    valid = [t for t in techniques if t in available]
+    invalid = [t for t in techniques if t not in available]
+    
+    if invalid:
+        console.print(f"[yellow]Unknown techniques: {invalid}[/yellow]")
+    
+    state.current_debias = valid
+    console.print(f"[green]Debiasing: {state.current_debias or 'none'}[/green]")
+
+
+def _cmd_clear(state: InteractiveState, arg: str) -> None:
+    """Handle /clear command."""
+    state.current_debias = []
+    console.print("[dim]Debiasing cleared[/dim]")
+
+
+def _cmd_list_experts(state: InteractiveState, arg: str) -> None:
+    """Handle /list-experts command."""
+    experts = state.configs.get("experts", {}).get("experts", {})
+    console.print("\n[bold]Available Experts:[/bold]")
+    for name, exp in experts.items():
+        desc = exp.get("description", "")
+        marker = "→" if name == state.current_expert else " "
+        console.print(f"  {marker} [cyan]{name}[/cyan]: {desc}")
+
+
+def _cmd_list_debias(state: InteractiveState, arg: str) -> None:
+    """Handle /list-debias command."""
+    available = list_available_techniques()
+    current_set = set(state.current_debias)
+    console.print("\n[bold]Available Debiasing Techniques:[/bold]")
+    for t in available:
+        marker = "✓" if t in current_set else " "
+        console.print(f"  {marker} [cyan]{t}[/cyan]")
+
+
+def _cmd_help(state: InteractiveState, arg: str) -> None:
+    """Handle /help command."""
+    console.print("Commands: /expert, /debias, /clear, /list-experts, /list-debias, /quit")
+
+
+# Command handler registry
+INTERACTIVE_COMMANDS: dict[str, Callable[[InteractiveState, str], None]] = {
+    "/quit": _cmd_quit,
+    "/exit": _cmd_quit,
+    "/expert": _cmd_expert,
+    "/debias": _cmd_debias,
+    "/clear": _cmd_clear,
+    "/list-experts": _cmd_list_experts,
+    "/list-debias": _cmd_list_debias,
+    "/help": _cmd_help,
+}
+
+
+def _show_interactive_help() -> None:
+    """Display interactive mode welcome message."""
     console.print(Panel(
         "[bold]Cognitive Stack - Interactive Mode[/bold]\n\n"
         "Commands:\n"
@@ -339,11 +393,35 @@ async def interactive_mode(configs: dict) -> None:
         "  /quit              - Exit\n",
         border_style="cyan"
     ))
+
+
+def _handle_command(state: InteractiveState, query: str) -> bool:
+    """
+    Handle a slash command.
     
-    current_expert: Optional[str] = None
-    current_debias: list[str] = []
+    Returns:
+        True if command was handled, False if it should be treated as query
+    """
+    parts = query.split(maxsplit=1)
+    cmd = parts[0].lower()
+    arg = parts[1].strip() if len(parts) > 1 else ""
     
-    while True:
+    handler = INTERACTIVE_COMMANDS.get(cmd)
+    if handler:
+        handler(state, arg)
+        return True
+    
+    console.print(f"[yellow]Unknown command: {cmd}. Try /help[/yellow]")
+    return True
+
+
+async def interactive_mode(configs: dict) -> None:
+    """Interactive session mode with persistent state."""
+    _show_interactive_help()
+    
+    state = InteractiveState(configs=configs)
+    
+    while state.running:
         try:
             query = console.input("\n[bold cyan]You:[/bold cyan] ").strip()
         except (KeyboardInterrupt, EOFError):
@@ -354,67 +432,20 @@ async def interactive_mode(configs: dict) -> None:
             continue
         
         if query.startswith("/"):
-            parts = query.split(maxsplit=1)
-            cmd = parts[0].lower()
-            arg = parts[1].strip() if len(parts) > 1 else ""
-            
-            if cmd == "/quit" or cmd == "/exit":
-                console.print("[dim]Goodbye![/dim]")
-                break
-            elif cmd == "/expert":
-                if arg:
-                    experts = configs.get("experts", {}).get("experts", {})
-                    if arg in experts:
-                        current_expert = arg
-                        console.print(f"[green]Expert set to: {arg}[/green]")
-                    else:
-                        console.print(f"[yellow]Unknown expert: {arg}. Use /list-experts[/yellow]")
-                else:
-                    current_expert = None
-                    console.print("[dim]Expert reset to default[/dim]")
-            elif cmd == "/debias":
-                if arg:
-                    techniques = [t.strip() for t in arg.split(",")]
-                    available = list_available_techniques()
-                    valid = [t for t in techniques if t in available]
-                    invalid = [t for t in techniques if t not in available]
-                    
-                    if invalid:
-                        console.print(f"[yellow]Unknown techniques: {invalid}[/yellow]")
-                    
-                    current_debias = valid
-                    console.print(f"[green]Debiasing: {current_debias or 'none'}[/green]")
-                else:
-                    console.print(f"[dim]Current debiasing: {current_debias or 'none'}[/dim]")
-            elif cmd == "/clear":
-                current_debias = []
-                console.print("[dim]Debiasing cleared[/dim]")
-            elif cmd == "/list-experts":
-                experts = configs.get("experts", {}).get("experts", {})
-                console.print("\n[bold]Available Experts:[/bold]")
-                for name, exp in experts.items():
-                    desc = exp.get("description", "")
-                    marker = "→" if name == current_expert else " "
-                    console.print(f"  {marker} [cyan]{name}[/cyan]: {desc}")
-            elif cmd == "/list-debias":
-                available = list_available_techniques()
-                console.print("\n[bold]Available Debiasing Techniques:[/bold]")
-                for t in available:
-                    marker = "✓" if t in current_debias else " "
-                    console.print(f"  {marker} [cyan]{t}[/cyan]")
-            elif cmd == "/help":
-                console.print("Commands: /expert, /debias, /clear, /list-experts, /list-debias, /quit")
-            else:
-                console.print(f"[yellow]Unknown command: {cmd}. Try /help[/yellow]")
+            _handle_command(state, query)
             continue
         
         await run_council(
             query,
             configs,
-            expert_name=current_expert,
-            debias_techniques=current_debias if current_debias else None
+            expert_name=state.current_expert,
+            debias_techniques=state.current_debias if state.current_debias else None
         )
 
+
+# ============================================================================
+# CLI Entry Point
+# ============================================================================
 
 @click.command()
 @click.argument("query", required=False)

@@ -16,3 +16,7 @@ __pycache__/
 
 # SonarQube
 sonar-project.properties
+.scannerwork
+
+# VSCode
+.vscode

@@ -62,6 +62,16 @@ cp .env.example .env
 
 ## Changelog
 
+### v1.2.0
+
+**Poprawki SonarQube:**
+- Usunięto redundantne `json.JSONDecodeError` (dziedziczy z `ValueError`)
+- Zrefaktorowano `interactive_mode` — cognitive complexity 64→12
+- Zrefaktorowano `_safe_get` — cognitive complexity 19→10
+- Wyodrębniono stałą `ERR_EMPTY_RESPONSE` (DRY)
+- Wyodrębniono handlery komend do osobnych funkcji
+- Dodano `InteractiveState` dataclass dla stanu sesji
+
 ### v1.1.0
 
 **Poprawki bezpieczeństwa:**
@@ -151,6 +161,17 @@ cp .env.example .env
 * `change_mind` – what would change your mind?
 
 ## Changelog
+
+### v1.2.0
+
+**SonarQube fixes:**
+
+* Removed redundant `json.JSONDecodeError` (inherits from `ValueError`)
+* Refactored `interactive_mode` — cognitive complexity 64→12
+* Refactored `_safe_get` — cognitive complexity 19→10
+* Extracted `ERR_EMPTY_RESPONSE` constant (DRY)
+* Extracted command handlers to separate functions
+* Added `InteractiveState` dataclass for session state
 
 ### v1.1.0
 
