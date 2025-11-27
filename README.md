@@ -17,12 +17,20 @@ source venv/bin/activate
 # Zainstaluj zależności
 pip install -r requirements.txt
 
-# Skonfiguruj API keys
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_API_KEY="..."
+# Skopiuj jak poniżej:
 
-# Opcjonalnie: dodaj do .bashrc/.zshrc
+```bash
+cp .env.example .env
+```
+
+# Skonfiguruj API keys w .env
+
+```
+CLAUDE_API_KEY="sk-ant-..."
+OPENAI_API_KEY="sk-..."
+GEMINI_API_KEY="..."
+```
+
 ```
 
 ## Konfiguracja
