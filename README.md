@@ -2,174 +2,88 @@
 
 CLI do orkiestracji wielu modeli LLM z analizą wariancji i protokołami debiasingu.
 
-Inspiracja: [Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via) - od "zapytaj 3 modele" do zaprojektowanej inteligencji.
-
 ## Instalacja
 
 ```bash
-# Klonuj lub pobierz projekt
 cd cognitive-stack
-
-# Stwórz venv
 python3 -m venv venv
 source venv/bin/activate
-
-# Zainstaluj zależności
 pip install -r requirements.txt
 
-# Skopiuj jak poniżej:
+cp .env.example .env
+# Edytuj .env i dodaj klucze API
+```
+
+## Użycie
 
 ```bash
-cp .env.example .env
-```
+# Podstawowe zapytanie
+./council.py "Twoje pytanie"
 
-# Skonfiguruj API keys w .env
+# Z ekspertem
+./council.py "Pytanie" --expert cost_cutter
 
-```
-CLAUDE_API_KEY="sk-ant-..."
-OPENAI_API_KEY="sk-..."
-GEMINI_API_KEY="..."
-```
+# Z debiasingiem
+./council.py "Pytanie" --debias premortem,counterargs
 
+# Tryb interaktywny
+./council.py --interactive
+
+# Lista ekspertów
+./council.py --list-experts
+
+# Lista technik debiasingu
+./council.py --list-debias
 ```
 
 ## Konfiguracja
 
-### config/user_model.yaml
+- `config/user_model.yaml` - Twój profil (cele, ograniczenia, styl komunikacji)
+- `config/experts.yaml` - Persony ekspertów
+- `config/providers.yaml` - Konfiguracja API (modele, timeouty)
 
-Twój profil - modele używają tego zamiast dawać generyczne rady:
-
-```yaml
-identity:
-  name: "Adrian"
-  role: "Security Engineer"
-
-goals:
-  - "Automatyzacja bez vendor lock-in"
-
-constraints:
-  - "Ograniczony budżet"
-  - "Musi działać air-gapped"
-
-risk_tolerance: "low-to-medium"
-```
-
-### config/experts.yaml
-
-Różne "czapki" ekspertów, które możesz nakładać:
+## Dostępni eksperci
 
 - `strategist` - myślenie długoterminowe
 - `cost_cutter` - pragmatyczny, ROI
-- `security_auditor` - paranoidny, threat modeling
+- `security_auditor` - threat modeling
 - `operator` - SRE, day-2 operations
 - `devils_advocate` - szuka dziur
 - `coach` - czynnik ludzki
 
-### config/providers.yaml
+## Techniki debiasingu
 
-Konfiguracja API (modele, timeouty, klucze).
-
-## Użycie
-
-### Podstawowe zapytanie (rada 3 modeli)
-
-```bash
-./council.py "Czy powinienem wdrożyć Kubernetes w homelabie?"
-```
-
-### Z konkretnym ekspertem
-
-```bash
-./council.py "Czy wdrożyć K8s?" --expert cost_cutter
-./council.py "Czy wdrożyć K8s?" --expert security_auditor
-```
-
-### Z debiasingiem
-
-```bash
-# Pre-mortem
-./council.py "Plan migracji do clouda" --debias premortem
-
-# Wiele technik
-./council.py "Plan migracji" --debias premortem,counterargs,uncertainty
-```
-
-Dostępne techniki debiasingu:
 - `premortem` - co poszło nie tak za rok?
 - `counterargs` - najsilniejsze kontrargumenty
-- `uncertainty` - poziomy pewności dla każdego twierdzenia
+- `uncertainty` - poziomy pewności
 - `assumptions` - ukryte założenia
 - `reference_class` - jak to wygląda statystycznie?
 - `change_mind` - co zmieniłoby zdanie?
 
-### Tryb interaktywny
+## Changelog
 
-```bash
-./council.py --interactive
-```
+### v1.1.0
 
-Komendy w trybie interaktywnym:
-- `/expert cost_cutter` - zmień eksperta
-- `/debias premortem,counterargs` - ustaw debiasing
-- `/clear` - wyczyść debiasing
-- `/quit` - wyjście
+**Poprawki bezpieczeństwa:**
+- Rozszerzone wzorce sanityzacji kluczy API (obsługa `sk-proj-*`)
+- Walidacja maksymalnej długości zapytania
+- Górny limit timeout (max 5 minut)
 
-### Lista ekspertów
+**Poprawki błędów:**
+- Fix: mutacja konfiguracji przy tworzeniu providerów (używa deepcopy)
+- Fix: bezpieczne parsowanie odpowiedzi API (brak KeyError przy zmianie formatu)
+- Fix: prawidłowe zamykanie klientów HTTP po zakończeniu
+- Dodano logikę retry z exponential backoff
+- Google Gemini: użycie natywnego `systemInstruction` zamiast workaroundu
 
-```bash
-./council.py --list-experts
-```
+**Ulepszenia:**
+- Równoległy debiasing (szybsze wykonanie)
+- Ponowne użycie połączeń HTTP (connection pooling)
+- Lepsze komunikaty błędów
+- Nowe opcje CLI: `--list-debias`, `--verbose`, `--version`
+- Pełne type hints i docstringi
+- Obsługa Ctrl+C w trybie interaktywnym
 
-## Architektura
+### v1.0.0
 
-```
-Query → [User Model] → [Expert Persona] → System Prompt
-                                               ↓
-                            ┌──────────────────┼──────────────────┐
-                            ↓                  ↓                  ↓
-                         OpenAI            Anthropic           Google
-                            ↓                  ↓                  ↓
-                            └──────────────────┼──────────────────┘
-                                               ↓
-                                    [Variance Analyzer]
-                                               ↓
-                                    [Debiasing Protocols]
-                                               ↓
-                                         Output
-```
-
-## Rozszerzenia
-
-### Dodawanie nowych providerów
-
-1. Dodaj klasę w `providers.py` dziedziczącą po `BaseProvider`
-2. Zarejestruj w `PROVIDER_CLASSES`
-3. Dodaj konfigurację w `config/providers.yaml`
-
-### Dodawanie ekspertów
-
-Edytuj `config/experts.yaml`:
-
-```yaml
-experts:
-  my_expert:
-    name: "My Expert"
-    description: "What they do"
-    system_prompt: |
-      Your instructions here...
-    triggers:
-      - "keyword1"
-      - "keyword2"
-```
-
-### Dodawanie technik debiasingu
-
-Dodaj prompt w `analyzers.py` → `DEBIASING_PROMPTS`.
-
-## Przyszłe rozszerzenia
-
-- [ ] Ollama dla modeli lokalnych (config gotowy)
-- [ ] Zapisywanie sesji do plików
-- [ ] Integracja z notatkami głosowymi (intuicja jako dane)
-- [ ] Auto-matching ekspertów na podstawie triggerów
-- [ ] Pipeline w YAML (łańcuchy agentów)
+- Pierwsza wersja

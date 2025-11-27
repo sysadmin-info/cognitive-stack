@@ -8,43 +8,99 @@ Usage:
     ./council.py "Question" --debias premortem,counterargs
     ./council.py --interactive
 """
+from __future__ import annotations
+
 import asyncio
-import os
+import logging
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
 
-# Load .env before anything else
+# Load .env before other imports that might need env vars
 load_dotenv()
 
 import click
 import yaml
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from providers import create_provider, query_council, BaseProvider, Response
-from analyzers import analyze_variance, run_debiasing, format_debiasing_results
+from providers import (
+    create_provider, 
+    query_council, 
+    close_all_providers,
+    BaseProvider, 
+    Response
+)
+from analyzers import (
+    analyze_variance, 
+    run_debiasing, 
+    format_debiasing_results,
+    list_available_techniques
+)
 
+__version__ = "1.1.0"
+
+# Configure logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(message)s",
+    handlers=[RichHandler(rich_tracebacks=True, show_path=False)]
+)
+logger = logging.getLogger(__name__)
 
 console = Console()
 CONFIG_DIR = Path(__file__).parent / "config"
 
+# Maximum query length to prevent abuse
+MAX_QUERY_LENGTH = 32000
+
+
+class ConfigError(Exception):
+    """Configuration related errors."""
+    pass
+
 
 def load_yaml(path: Path) -> dict:
-    """Load YAML config file."""
+    """
+    Load and validate YAML config file.
+    
+    Args:
+        path: Path to YAML file
+        
+    Returns:
+        Parsed YAML as dict
+        
+    Raises:
+        ConfigError: If file doesn't exist or is invalid
+    """
     if not path.exists():
-        console.print(f"[red]Config not found: {path}[/red]")
-        sys.exit(1)
-    with open(path) as f:
-        return yaml.safe_load(f)
+        raise ConfigError(f"Config file not found: {path}")
+    
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            if data is None:
+                return {}
+            if not isinstance(data, dict):
+                raise ConfigError(f"Config must be a YAML mapping: {path}")
+            return data
+    except yaml.YAMLError as e:
+        raise ConfigError(f"Invalid YAML in {path}: {e}")
 
 
-def load_configs():
-    """Load all configuration files."""
+def load_configs() -> dict[str, dict]:
+    """
+    Load all configuration files.
+    
+    Returns:
+        Dict with user_model, experts, and providers configs
+    """
     return {
         "user_model": load_yaml(CONFIG_DIR / "user_model.yaml"),
         "experts": load_yaml(CONFIG_DIR / "experts.yaml"),
@@ -53,28 +109,40 @@ def load_configs():
 
 
 def build_system_prompt(user_model: dict, expert: Optional[dict] = None) -> str:
-    """Build system prompt from user model and optional expert persona."""
+    """
+    Build system prompt from user model and optional expert persona.
+    
+    Args:
+        user_model: User profile configuration
+        expert: Optional expert persona configuration
+        
+    Returns:
+        Formatted system prompt string
+    """
     parts = []
     
     # User context
-    um = user_model
+    identity = user_model.get("identity", {})
     parts.append("## User Context")
-    parts.append(f"Name: {um.get('identity', {}).get('name', 'Unknown')}")
-    parts.append(f"Role: {um.get('identity', {}).get('role', 'Unknown')}")
+    parts.append(f"Name: {identity.get('name', 'Unknown')}")
+    parts.append(f"Role: {identity.get('role', 'Unknown')}")
     
-    if goals := um.get("goals"):
-        parts.append(f"Goals: {', '.join(goals)}")
+    if goals := user_model.get("goals"):
+        if isinstance(goals, list):
+            parts.append(f"Goals: {', '.join(str(g) for g in goals)}")
     
-    if constraints := um.get("constraints"):
-        parts.append(f"Constraints: {', '.join(constraints)}")
+    if constraints := user_model.get("constraints"):
+        if isinstance(constraints, list):
+            parts.append(f"Constraints: {', '.join(str(c) for c in constraints)}")
     
-    parts.append(f"Risk tolerance: {um.get('risk_tolerance', 'medium')}")
+    parts.append(f"Risk tolerance: {user_model.get('risk_tolerance', 'medium')}")
     
-    if ethics := um.get("ethics"):
-        parts.append(f"Ethics: {', '.join(ethics)}")
+    if ethics := user_model.get("ethics"):
+        if isinstance(ethics, list):
+            parts.append(f"Ethics: {', '.join(str(e) for e in ethics)}")
     
     # Communication style
-    style = um.get("communication_style", {})
+    style = user_model.get("communication_style", {})
     lang = style.get("preferred_language", "en")
     parts.append(f"\nRespond in: {'Polish' if lang == 'pl' else 'English'}")
     parts.append(f"Verbosity: {style.get('verbosity', 'normal')}")
@@ -83,33 +151,59 @@ def build_system_prompt(user_model: dict, expert: Optional[dict] = None) -> str:
     # Expert persona
     if expert:
         parts.append(f"\n## Your Role: {expert.get('name', 'Advisor')}")
-        parts.append(expert.get("system_prompt", ""))
+        if system_prompt := expert.get("system_prompt"):
+            parts.append(str(system_prompt))
     
     return "\n".join(parts)
 
 
 def create_providers_from_config(config: dict) -> list[BaseProvider]:
-    """Create provider instances from config."""
-    providers_config = config["providers"]
+    """
+    Create provider instances from config.
+    
+    Args:
+        config: Full configuration dict
+        
+    Returns:
+        List of initialized provider instances
+    """
+    providers_config = config.get("providers", {})
     default_council = providers_config.get("default_council", ["openai", "anthropic"])
     timeout = providers_config.get("timeout", 60)
+    max_retries = providers_config.get("max_retries", 2)
     
     providers = []
+    errors = []
+    
     for name in default_council:
-        provider_conf = providers_config.get("providers", {}).get(name, {})
+        # Use deepcopy to avoid mutating original config
+        provider_conf = deepcopy(providers_config.get("providers", {}).get(name, {}))
+        
+        if not provider_conf:
+            errors.append(f"{name}: not configured")
+            continue
+            
         if not provider_conf.get("enabled", True):
             continue
+        
+        # Add global settings
         provider_conf["timeout"] = timeout
+        provider_conf["max_retries"] = max_retries
+        
         try:
             providers.append(create_provider(name, provider_conf))
         except Exception as e:
-            console.print(f"[yellow]Warning: Could not create {name}: {e}[/yellow]")
+            errors.append(f"{name}: {e}")
+    
+    if errors:
+        for error in errors:
+            console.print(f"[yellow]Warning: {error}[/yellow]")
     
     return providers
 
 
-def display_response(resp: Response):
-    """Display a single model response."""
+def display_response(resp: Response) -> None:
+    """Display a single model response in a panel."""
     if resp.error:
         console.print(Panel(
             f"[red]Error: {resp.error}[/red]",
@@ -130,106 +224,130 @@ async def run_council(
     expert_name: Optional[str] = None,
     debias_techniques: Optional[list[str]] = None,
     show_variance: bool = True
-):
-    """Run the full council pipeline."""
+) -> None:
+    """
+    Run the full council pipeline.
+    
+    Args:
+        query: User's question
+        configs: Loaded configuration
+        expert_name: Optional expert persona to use
+        debias_techniques: Optional list of debiasing techniques
+        show_variance: Whether to show variance analysis
+    """
+    # Validate query length
+    if len(query) > MAX_QUERY_LENGTH:
+        console.print(f"[red]Query too long. Maximum {MAX_QUERY_LENGTH} characters.[/red]")
+        return
     
     # Build system prompt
     expert = None
     if expert_name:
-        experts_config = configs["experts"].get("experts", {})
+        experts_config = configs.get("experts", {}).get("experts", {})
         expert = experts_config.get(expert_name)
         if not expert:
-            console.print(f"[yellow]Expert '{expert_name}' not found. Using default.[/yellow]")
+            available = list(experts_config.keys())
+            console.print(f"[yellow]Expert '{expert_name}' not found. Available: {available}[/yellow]")
     
-    system_prompt = build_system_prompt(configs["user_model"], expert)
+    system_prompt = build_system_prompt(configs.get("user_model", {}), expert)
     
     # Create providers
     providers = create_providers_from_config(configs)
     if not providers:
-        console.print("[red]No providers available. Check your API keys.[/red]")
+        console.print("[red]No providers available. Check your API keys and config.[/red]")
         return
     
-    console.print(f"\n[dim]Querying {len(providers)} models...[/dim]\n")
-    
-    # Query council
-    messages = [{"role": "user", "content": query}]
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-        task = progress.add_task("Waiting for responses...", total=None)
-        responses = await query_council(providers, messages, system_prompt)
-        progress.remove_task(task)
-    
-    # Display individual responses
-    for resp in responses:
-        display_response(resp)
-        console.print()
-    
-    # Variance analysis
-    successful_responses = [r for r in responses if r.ok]
-    
-    if show_variance and len(successful_responses) > 1:
-        console.print("[dim]Analyzing variance...[/dim]\n")
+    try:
+        console.print(f"\n[dim]Querying {len(providers)} models...[/dim]\n")
         
-        # Use first available provider for analysis
-        analyzer = providers[0]
-        variance_report = await analyze_variance(successful_responses, analyzer)
+        # Query council
+        messages = [{"role": "user", "content": query}]
         
-        console.print(Panel(
-            Markdown(variance_report.format()),
-            title="📊 Variance Analysis",
-            border_style="green"
-        ))
-        console.print()
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True
+        ) as progress:
+            task = progress.add_task("Waiting for responses...", total=None)
+            responses = await query_council(providers, messages, system_prompt)
+            progress.remove_task(task)
+        
+        # Display individual responses
+        for resp in responses:
+            display_response(resp)
+            console.print()
+        
+        # Variance analysis
+        successful_responses = [r for r in responses if r.ok]
+        
+        if show_variance and len(successful_responses) > 1:
+            console.print("[dim]Analyzing variance...[/dim]\n")
+            
+            # Use first available provider for analysis
+            variance_report = await analyze_variance(successful_responses, providers[0])
+            
+            console.print(Panel(
+                Markdown(variance_report.format()),
+                title="📊 Variance Analysis",
+                border_style="green"
+            ))
+            console.print()
+        
+        # Debiasing
+        if debias_techniques and successful_responses:
+            console.print("[dim]Running debiasing protocols...[/dim]\n")
+            
+            # Combine responses for debiasing
+            combined = "\n\n---\n\n".join([
+                f"**{r.provider}**: {r.content}" for r in successful_responses
+            ])
+            
+            user_goals = configs.get("user_model", {}).get("goals", [])
+            user_context = f"Goals: {user_goals}" if user_goals else ""
+            
+            debias_results = await run_debiasing(
+                combined,
+                debias_techniques,
+                providers[0],
+                user_context,
+                parallel=True
+            )
+            
+            console.print(Panel(
+                Markdown(format_debiasing_results(debias_results)),
+                title="🎯 Debiasing Results",
+                border_style="yellow"
+            ))
     
-    # Debiasing
-    if debias_techniques and successful_responses:
-        console.print("[dim]Running debiasing protocols...[/dim]\n")
-        
-        # Combine responses for debiasing
-        combined = "\n\n---\n\n".join([
-            f"**{r.provider}**: {r.content}" for r in successful_responses
-        ])
-        
-        user_context = f"Goals: {configs['user_model'].get('goals', [])}"
-        
-        debias_results = await run_debiasing(
-            combined,
-            debias_techniques,
-            providers[0],
-            user_context
-        )
-        
-        console.print(Panel(
-            Markdown(format_debiasing_results(debias_results)),
-            title="🎯 Debiasing Results",
-            border_style="yellow"
-        ))
+    finally:
+        # Always cleanup
+        await close_all_providers(providers)
 
 
-async def interactive_mode(configs: dict):
-    """Interactive session mode."""
+async def interactive_mode(configs: dict) -> None:
+    """Interactive session mode with persistent state."""
     console.print(Panel(
         "[bold]Cognitive Stack - Interactive Mode[/bold]\n\n"
         "Commands:\n"
-        "  /expert <name>  - Switch expert persona\n"
-        "  /debias <t1,t2> - Set debiasing (premortem,counterargs,uncertainty,assumptions,reference_class,change_mind)\n"
-        "  /clear          - Clear debiasing\n"
-        "  /help           - Show this help\n"
-        "  /quit           - Exit\n",
+        "  /expert <name>     - Switch expert persona\n"
+        "  /debias <t1,t2>    - Set debiasing techniques\n"
+        "  /clear             - Clear debiasing\n"
+        "  /list-experts      - Show available experts\n"
+        "  /list-debias       - Show available debiasing techniques\n"
+        "  /help              - Show this help\n"
+        "  /quit              - Exit\n",
         border_style="cyan"
     ))
     
-    current_expert = None
-    current_debias = []
+    current_expert: Optional[str] = None
+    current_debias: list[str] = []
     
     while True:
         try:
             query = console.input("\n[bold cyan]You:[/bold cyan] ").strip()
         except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Goodbye![/dim]")
             break
         
         if not query:
@@ -238,23 +356,56 @@ async def interactive_mode(configs: dict):
         if query.startswith("/"):
             parts = query.split(maxsplit=1)
             cmd = parts[0].lower()
-            arg = parts[1] if len(parts) > 1 else ""
+            arg = parts[1].strip() if len(parts) > 1 else ""
             
-            if cmd == "/quit":
+            if cmd == "/quit" or cmd == "/exit":
+                console.print("[dim]Goodbye![/dim]")
                 break
             elif cmd == "/expert":
-                current_expert = arg if arg else None
-                console.print(f"[dim]Expert set to: {current_expert or 'default'}[/dim]")
+                if arg:
+                    experts = configs.get("experts", {}).get("experts", {})
+                    if arg in experts:
+                        current_expert = arg
+                        console.print(f"[green]Expert set to: {arg}[/green]")
+                    else:
+                        console.print(f"[yellow]Unknown expert: {arg}. Use /list-experts[/yellow]")
+                else:
+                    current_expert = None
+                    console.print("[dim]Expert reset to default[/dim]")
             elif cmd == "/debias":
-                current_debias = [t.strip() for t in arg.split(",")] if arg else []
-                console.print(f"[dim]Debiasing: {current_debias or 'none'}[/dim]")
+                if arg:
+                    techniques = [t.strip() for t in arg.split(",")]
+                    available = list_available_techniques()
+                    valid = [t for t in techniques if t in available]
+                    invalid = [t for t in techniques if t not in available]
+                    
+                    if invalid:
+                        console.print(f"[yellow]Unknown techniques: {invalid}[/yellow]")
+                    
+                    current_debias = valid
+                    console.print(f"[green]Debiasing: {current_debias or 'none'}[/green]")
+                else:
+                    console.print(f"[dim]Current debiasing: {current_debias or 'none'}[/dim]")
             elif cmd == "/clear":
                 current_debias = []
                 console.print("[dim]Debiasing cleared[/dim]")
+            elif cmd == "/list-experts":
+                experts = configs.get("experts", {}).get("experts", {})
+                console.print("\n[bold]Available Experts:[/bold]")
+                for name, exp in experts.items():
+                    desc = exp.get("description", "")
+                    marker = "→" if name == current_expert else " "
+                    console.print(f"  {marker} [cyan]{name}[/cyan]: {desc}")
+            elif cmd == "/list-debias":
+                available = list_available_techniques()
+                console.print("\n[bold]Available Debiasing Techniques:[/bold]")
+                for t in available:
+                    marker = "✓" if t in current_debias else " "
+                    console.print(f"  {marker} [cyan]{t}[/cyan]")
             elif cmd == "/help":
-                console.print("Commands: /expert, /debias, /clear, /quit")
+                console.print("Commands: /expert, /debias, /clear, /list-experts, /list-debias, /quit")
             else:
-                console.print(f"[yellow]Unknown command: {cmd}[/yellow]")
+                console.print(f"[yellow]Unknown command: {cmd}. Try /help[/yellow]")
             continue
         
         await run_council(
@@ -267,20 +418,45 @@ async def interactive_mode(configs: dict):
 
 @click.command()
 @click.argument("query", required=False)
-@click.option("--expert", "-e", help="Expert persona to use (strategist, cost_cutter, security_auditor, operator, devils_advocate, coach)")
-@click.option("--debias", "-d", help="Debiasing techniques (comma-separated: premortem,counterargs,uncertainty,assumptions,reference_class,change_mind)")
+@click.option("--expert", "-e", help="Expert persona to use")
+@click.option("--debias", "-d", help="Debiasing techniques (comma-separated)")
 @click.option("--interactive", "-i", is_flag=True, help="Interactive session mode")
 @click.option("--no-variance", is_flag=True, help="Skip variance analysis")
 @click.option("--list-experts", is_flag=True, help="List available experts")
-def main(query, expert, debias, interactive, no_variance, list_experts):
+@click.option("--list-debias", is_flag=True, help="List available debiasing techniques")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+@click.version_option(version=__version__)
+def main(
+    query: Optional[str],
+    expert: Optional[str],
+    debias: Optional[str],
+    interactive: bool,
+    no_variance: bool,
+    list_experts: bool,
+    list_debias: bool,
+    verbose: bool
+) -> None:
     """Query multiple LLMs with cognitive stack enhancements."""
     
-    configs = load_configs()
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    try:
+        configs = load_configs()
+    except ConfigError as e:
+        console.print(f"[red]Configuration error: {e}[/red]")
+        sys.exit(1)
     
     if list_experts:
         console.print("\n[bold]Available Experts:[/bold]\n")
-        for name, exp in configs["experts"].get("experts", {}).items():
+        for name, exp in configs.get("experts", {}).get("experts", {}).items():
             console.print(f"  [cyan]{name}[/cyan]: {exp.get('description', '')}")
+        return
+    
+    if list_debias:
+        console.print("\n[bold]Available Debiasing Techniques:[/bold]\n")
+        for technique in list_available_techniques():
+            console.print(f"  [cyan]{technique}[/cyan]")
         return
     
     if interactive:
@@ -290,7 +466,8 @@ def main(query, expert, debias, interactive, no_variance, list_experts):
     if not query:
         console.print("[red]Please provide a query or use --interactive mode.[/red]")
         console.print("Usage: ./council.py 'Your question here'")
-        return
+        console.print("       ./council.py --interactive")
+        sys.exit(1)
     
     debias_techniques = None
     if debias:
