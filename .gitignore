@@ -12,3 +12,7 @@ __pycache__/
 # Logi i tymczasowe
 *.log
 *.tmp
+
+
+# SonarQube
+sonar-project.properties
