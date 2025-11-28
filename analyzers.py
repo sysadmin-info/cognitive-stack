@@ -232,21 +232,55 @@ def _parse_json_from_text(text: str) -> dict:
     raise ValueError("No valid JSON found in response")
 
 
+def _get_variance_messages(language: str) -> dict[str, str]:
+    """Get variance analysis messages for the specified language."""
+    messages = {
+        "en": {
+            "no_responses": "No responses to analyze.",
+            "parse_failed": "Could not analyze automatically. Please review responses manually.",
+            "parse_failed_signal": "Automatic analysis failed",
+            "error_prefix": "Analysis failed:",
+            "error_signal": "Error during variance analysis",
+        },
+        "pl": {
+            "no_responses": "Brak odpowiedzi do analizy.",
+            "parse_failed": "Nie udało się przeanalizować automatycznie. Przejrzyj odpowiedzi ręcznie.",
+            "parse_failed_signal": "Analiza automatyczna nie powiodła się",
+            "error_prefix": "Analiza nie powiodła się:",
+            "error_signal": "Błąd podczas analizy wariancji",
+        }
+    }
+    return messages.get(language, messages["en"])
+
+
+def _build_fallback_data(msgs: dict[str, str], error: str | None = None) -> dict:
+    """Build fallback data dict for variance analysis errors."""
+    if error:
+        return {
+            "agreement_summary": f"{msgs['error_prefix']} {error or 'Unknown error'}",
+            "disagreement_points": [],
+            "confidence_signals": [msgs["error_signal"]]
+        }
+    return {
+        "agreement_summary": msgs["parse_failed"],
+        "disagreement_points": [],
+        "confidence_signals": [msgs["parse_failed_signal"]]
+    }
+
+
 async def analyze_variance(
     responses: list[Response],
     analyzer: BaseProvider,
     language: str = "en"
 ) -> VarianceReport:
     """Analyze variance between multiple model responses."""
-    from providers import Response  # Import here to avoid circular import
-    
-    labels = get_labels_for_language(language)
+    lang_key = "en" if language == "en" else "pl"
+    msgs = _get_variance_messages(lang_key)
     
     if not responses:
-        no_responses_msg = "No responses to analyze." if language == "en" else "Brak odpowiedzi do analizy."
         return VarianceReport(
             responses=[],
-            agreement_summary=no_responses_msg,
+            agreement_summary=msgs["no_responses"],
             disagreement_points=[],
             confidence_signals=[],
             language=language
@@ -264,42 +298,7 @@ async def analyze_variance(
     result = await analyzer.complete(messages, system=VARIANCE_ANALYSIS_PROMPT)
     
     # Parse JSON response with fallback
-    if result.ok and result.content:
-        try:
-            data = _parse_json_from_text(result.content)
-        except ValueError as e:
-            logger.warning(f"Failed to parse variance analysis JSON: {e}")
-            fallback_msg = (
-                "Could not analyze automatically. Please review responses manually."
-                if language == "en" else 
-                "Nie udało się przeanalizować automatycznie. Przejrzyj odpowiedzi ręcznie."
-            )
-            fallback_signal = (
-                "Automatic analysis failed"
-                if language == "en" else
-                "Analiza automatyczna nie powiodła się"
-            )
-            data = {
-                "agreement_summary": fallback_msg,
-                "disagreement_points": [],
-                "confidence_signals": [fallback_signal]
-            }
-    else:
-        error_msg = (
-            f"Analysis failed: {result.error or 'Unknown error'}"
-            if language == "en" else
-            f"Analiza nie powiodła się: {result.error or 'Unknown error'}"
-        )
-        error_signal = (
-            "Error during variance analysis"
-            if language == "en" else
-            "Błąd podczas analizy wariancji"
-        )
-        data = {
-            "agreement_summary": error_msg,
-            "disagreement_points": [],
-            "confidence_signals": [error_signal]
-        }
+    data = _parse_variance_result(result, msgs)
     
     return VarianceReport(
         responses=responses,
@@ -308,6 +307,17 @@ async def analyze_variance(
         confidence_signals=data.get("confidence_signals", []),
         language=language
     )
+
+
+def _parse_variance_result(result, msgs: dict[str, str]) -> dict:
+    """Parse variance analysis result with error handling."""
+    if result.ok and result.content:
+        try:
+            return _parse_json_from_text(result.content)
+        except ValueError as e:
+            logger.warning(f"Failed to parse variance analysis JSON: {e}")
+            return _build_fallback_data(msgs)
+    return _build_fallback_data(msgs, error=result.error)
 
 
 

@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 # Error message constants
 ERR_EMPTY_RESPONSE = "Empty response from API"
 
+# HTTP constants
+CONTENT_TYPE_JSON = "application/json"
+
 # Patterns for sanitizing API keys in error messages
 _SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r'key=[A-Za-z0-9_-]{15,}'), 'key=***REDACTED***'),
@@ -211,7 +214,7 @@ class OpenAIProvider(BaseProvider):
     async def complete(self, messages: list[dict], system: str = "") -> Response:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": CONTENT_TYPE_JSON
         }
         
         all_messages = messages.copy()
@@ -260,7 +263,7 @@ class AnthropicProvider(BaseProvider):
     async def complete(self, messages: list[dict], system: str = "") -> Response:
         headers = {
             "x-api-key": self.api_key,
-            "Content-Type": "application/json",
+            "Content-Type": CONTENT_TYPE_JSON,
             "anthropic-version": "2023-06-01"
         }
         
@@ -385,7 +388,7 @@ class LMStudioProvider(BaseProvider):
     name: ClassVar[str] = "lmstudio"
     
     async def complete(self, messages: list[dict], system: str = "") -> Response:
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": CONTENT_TYPE_JSON}
         
         # Add API key if provided (some setups require it)
         if self.api_key and self.api_key != "local":
