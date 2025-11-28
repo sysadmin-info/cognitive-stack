@@ -59,6 +59,8 @@ default_council:
   - openai
   - anthropic
   - google
+  - lmstudio
+  - anythingllm
 
 # Timeout dla zapytań API (sekundy)
 timeout: 360
