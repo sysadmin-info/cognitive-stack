@@ -21,6 +21,11 @@ Projekt inspirowany koncepcją **"Synthetic Cognitive Systems"** - przejście od
 
 Więcej o koncepcji: [LinkedIn - Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via)
 
+
+## Film instruktażowy (po angielsku)
+
+[![Stop trusting one LLM model build your own council](https://i9.ytimg.com/vi/adnPYb1XVt8/mqdefault.jpg?v=6929aa63&sqp=COTcpskG&rs=AOn4CLDtoHz1R50F_tgSajNC4JVfBMuF0Q)](https://www.youtube.com/watch?v=adnPYb1XVt8 "Stop trusting one LLM model build your own council - Click to Watch!")
+
 ### Pięć poziomów stosu kognitywnego:
 
 1. **LLM-Council** - wariancja jako sygnał (gdzie modele się zgadzają = większa pewność)
@@ -284,6 +289,10 @@ Project inspired by the **"Synthetic Cognitive Systems"** concept - moving from 
 **Key philosophy:** Stop treating AI like a chatbot, start treating it like a designed decision-making process.
 
 More about the concept: [LinkedIn - Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via)
+
+## Video walkthrough
+
+[![Stop trusting one LLM model build your own council](https://i9.ytimg.com/vi/adnPYb1XVt8/mqdefault.jpg?v=6929aa63&sqp=COTcpskG&rs=AOn4CLDtoHz1R50F_tgSajNC4JVfBMuF0Q)](https://www.youtube.com/watch?v=adnPYb1XVt8 "Stop trusting one LLM model build your own council - Click to Watch!")
 
 ### Five Levels of the Cognitive Stack:
 
