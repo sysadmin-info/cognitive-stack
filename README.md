@@ -15,7 +15,7 @@
 
 ## Geneza projektu
 
-Projekt inspirowany koncepcją **"Synthetic Cognitive Systems"** — przejście od prostego "zapytaj 3 modele" do zaprojektowanego stosu kognitywnego.
+Projekt inspirowany koncepcją **"Synthetic Cognitive Systems"** - przejście od prostego "zapytaj 3 modele" do zaprojektowanego stosu kognitywnego.
 
 **Kluczowa filozofia:** Przestać traktować AI jak chatbota, zacząć traktować jak zaprojektowany proces decyzyjny.
 
@@ -23,11 +23,11 @@ Więcej o koncepcji: [LinkedIn - Synthetic Cognitive Systems](https://www.linked
 
 ### Pięć poziomów stosu kognitywnego:
 
-1. **LLM-Council** — wariancja jako sygnał (gdzie modele się zgadzają = większa pewność)
-2. **User Model** — profil użytkownika (cele, ograniczenia, tolerancja ryzyka)
-3. **Expert Matching** — dopasowanie persony eksperta do kontekstu pytania
-4. **Debiasing Protocols** — wymuszanie krytycznego myślenia (pre-mortem, kontrargumenty)
-5. **Intuition as Data** — protokoły dla przeczuć i nieoczywistych sygnałów
+1. **LLM-Council** - wariancja jako sygnał (gdzie modele się zgadzają = większa pewność)
+2. **User Model** - profil użytkownika (cele, ograniczenia, tolerancja ryzyka)
+3. **Expert Matching** - dopasowanie persony eksperta do kontekstu pytania
+4. **Debiasing Protocols** - wymuszanie krytycznego myślenia (pre-mortem, kontrargumenty)
+5. **Intuition as Data** - protokoły dla przeczuć i nieoczywistych sygnałów
 
 ## Architektura
 
@@ -53,7 +53,7 @@ cognitive-stack/
 | `analyzers.py` | Analiza wariancji między odpowiedziami, 6 technik debiasingu |
 | `config/providers.yaml` | Włączanie/wyłączanie providerów, URL-e, modele, timeouty |
 | `config/experts.yaml` | Persony ekspertów z system promptami i triggerami |
-| `config/user_model.yaml` | Twój profil — cele, ograniczenia, styl komunikacji |
+| `config/user_model.yaml` | Twój profil - cele, ograniczenia, styl komunikacji |
 
 ## Instalacja
 
@@ -93,9 +93,9 @@ cp .env.example .env
 
 ### Pliki konfiguracyjne
 
-- `config/user_model.yaml` — Twój profil (cele, ograniczenia, styl komunikacji)
-- `config/experts.yaml` — Persony ekspertów
-- `config/providers.yaml` — Konfiguracja API (modele, timeouty, włączanie providerów)
+- `config/user_model.yaml` - Twój profil (cele, ograniczenia, styl komunikacji)
+- `config/experts.yaml` - Persony ekspertów
+- `config/providers.yaml` - Konfiguracja API (modele, timeouty, włączanie providerów)
 
 ### Zmienne środowiskowe (.env)
 
@@ -123,9 +123,9 @@ MODEL_NAME_ANY=qwen3-asteria-14b-128k
 ## Lokalne modele
 
 Cognitive Stack obsługuje lokalne modele przez:
-- **Ollama** — natywne API Ollama
-- **LM Studio** — OpenAI-compatible API
-- **Anything LLM** — OpenAI-compatible API
+- **Ollama** - natywne API Ollama
+- **LM Studio** - OpenAI-compatible API
+- **Anything LLM** - OpenAI-compatible API
 
 ### Konfiguracja lokalnych modeli
 
@@ -236,8 +236,8 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 **Poprawki SonarQube:**
 - Usunięto redundantne `json.JSONDecodeError`
-- Zrefaktorowano `interactive_mode` — cognitive complexity 64→12
-- Zrefaktorowano `_safe_get` — cognitive complexity 19→10
+- Zrefaktorowano `interactive_mode` - cognitive complexity 64→12
+- Zrefaktorowano `_safe_get` - cognitive complexity 19→10
 - Wyodrębniono stałą `ERR_EMPTY_RESPONSE` (DRY)
 - Wyodrębniono handlery komend do osobnych funkcji
 - Dodano `InteractiveState` dataclass
@@ -273,7 +273,7 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## Project Origin
 
-Project inspired by the **"Synthetic Cognitive Systems"** concept — moving from simple "ask 3 models" to a designed cognitive stack.
+Project inspired by the **"Synthetic Cognitive Systems"** concept - moving from simple "ask 3 models" to a designed cognitive stack.
 
 **Key philosophy:** Stop treating AI like a chatbot, start treating it like a designed decision-making process.
 
@@ -281,11 +281,11 @@ More about the concept: [LinkedIn - Synthetic Cognitive Systems](https://www.lin
 
 ### Five Levels of the Cognitive Stack:
 
-1. **LLM-Council** — variance as signal (where models agree = higher confidence)
-2. **User Model** — user profile (goals, constraints, risk tolerance)
-3. **Expert Matching** — matching expert persona to question context
-4. **Debiasing Protocols** — forcing critical thinking (pre-mortem, counterarguments)
-5. **Intuition as Data** — protocols for hunches and non-obvious signals
+1. **LLM-Council** - variance as signal (where models agree = higher confidence)
+2. **User Model** - user profile (goals, constraints, risk tolerance)
+3. **Expert Matching** - matching expert persona to question context
+4. **Debiasing Protocols** - forcing critical thinking (pre-mortem, counterarguments)
+5. **Intuition as Data** - protocols for hunches and non-obvious signals
 
 ## Architecture
 
@@ -311,7 +311,7 @@ cognitive-stack/
 | `analyzers.py` | Variance analysis between responses, 6 debiasing techniques |
 | `config/providers.yaml` | Enable/disable providers, URLs, models, timeouts |
 | `config/experts.yaml` | Expert personas with system prompts and triggers |
-| `config/user_model.yaml` | Your profile — goals, constraints, communication style |
+| `config/user_model.yaml` | Your profile - goals, constraints, communication style |
 
 ## Installation
 
@@ -351,9 +351,9 @@ cp .env.example .env
 
 ### Configuration Files
 
-- `config/user_model.yaml` — Your profile (goals, constraints, communication style)
-- `config/experts.yaml` — Expert personas
-- `config/providers.yaml` — API configuration (models, timeouts, enabling providers)
+- `config/user_model.yaml` - Your profile (goals, constraints, communication style)
+- `config/experts.yaml` - Expert personas
+- `config/providers.yaml` - API configuration (models, timeouts, enabling providers)
 
 ### Environment Variables (.env)
 
@@ -381,9 +381,9 @@ MODEL_NAME_ANY=qwen3-asteria-14b-128k
 ## Local Models
 
 Cognitive Stack supports local models via:
-- **Ollama** — native Ollama API
-- **LM Studio** — OpenAI-compatible API
-- **Anything LLM** — OpenAI-compatible API
+- **Ollama** - native Ollama API
+- **LM Studio** - OpenAI-compatible API
+- **Anything LLM** - OpenAI-compatible API
 
 ### Configuring Local Models
 
@@ -494,8 +494,8 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 **SonarQube fixes:**
 - Removed redundant `json.JSONDecodeError`
-- Refactored `interactive_mode` — cognitive complexity 64→12
-- Refactored `_safe_get` — cognitive complexity 19→10
+- Refactored `interactive_mode` - cognitive complexity 64→12
+- Refactored `_safe_get` - cognitive complexity 19→10
 - Extracted `ERR_EMPTY_RESPONSE` constant (DRY)
 - Extracted command handlers to separate functions
 - Added `InteractiveState` dataclass
@@ -529,4 +529,4 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
+MIT License - see [LICENSE](LICENSE)
