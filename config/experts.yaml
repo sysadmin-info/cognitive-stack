@@ -1,5 +1,7 @@
 # Eksperci - różne perspektywy do dopasowania do kontekstu
 # System wybiera eksperta na podstawie typu problemu lub możesz wymusić ręcznie
+# Experts - different perspectives to suit the context
+# The system selects an expert based on the type of problem, or you can force it manually
 
 experts:
   strategist:

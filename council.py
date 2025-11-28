@@ -45,7 +45,7 @@ from analyzers import (
     list_available_techniques
 )
 
-__version__ = "1.2.1"
+__version__ = "1.4.0"
 
 # Configure logging
 logging.basicConfig(
@@ -209,6 +209,11 @@ async def run_council(
         console.print(f"[red]Query too long. Maximum {MAX_QUERY_LENGTH} characters.[/red]")
         return
     
+    # Get user language preference
+    user_model = configs.get("user_model", {})
+    communication_style = user_model.get("communication_style", {})
+    language = communication_style.get("preferred_language", "en")
+    
     # Build system prompt
     expert = None
     if expert_name:
@@ -218,7 +223,7 @@ async def run_council(
             available = list(experts_config.keys())
             console.print(f"[yellow]Expert '{expert_name}' not found. Available: {available}[/yellow]")
     
-    system_prompt = build_system_prompt(configs.get("user_model", {}), expert)
+    system_prompt = build_system_prompt(user_model, expert)
     
     # Create providers
     providers = create_providers_from_config(configs)
@@ -252,7 +257,7 @@ async def run_council(
         
         if show_variance and len(successful_responses) > 1:
             console.print("[dim]Analyzing variance...[/dim]\n")
-            variance_report = await analyze_variance(successful_responses, providers[0])
+            variance_report = await analyze_variance(successful_responses, providers[0], language)
             console.print(Panel(
                 Markdown(variance_report.format()),
                 title="📊 Variance Analysis",
@@ -266,14 +271,14 @@ async def run_council(
             combined = "\n\n---\n\n".join([
                 f"**{r.provider}**: {r.content}" for r in successful_responses
             ])
-            user_goals = configs.get("user_model", {}).get("goals", [])
+            user_goals = user_model.get("goals", [])
             user_context = f"Goals: {user_goals}" if user_goals else ""
             
             debias_results = await run_debiasing(
-                combined, debias_techniques, providers[0], user_context, parallel=True
+                combined, debias_techniques, providers[0], user_context, parallel=True, language=language
             )
             console.print(Panel(
-                Markdown(format_debiasing_results(debias_results)),
+                Markdown(format_debiasing_results(debias_results, language)),
                 title="🎯 Debiasing Results",
                 border_style="yellow"
             ))

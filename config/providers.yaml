@@ -1,5 +1,7 @@
 # Konfiguracja providerów API
 # Klucze ładowane z pliku .env (lub zmiennych środowiskowych)
+# API provider configuration
+# Keys loaded from the .env file (or environment variables)
 
 providers:
   openai:
@@ -57,8 +59,6 @@ default_council:
   - openai
   - anthropic
   - google
-  - lmstudio
-  - anythingllm
 
 # Timeout dla zapytań API (sekundy)
 timeout: 360

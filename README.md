@@ -212,7 +212,20 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## Changelog
 
-### v1.2.2
+### v1.4.0
+
+**Obsługa dwóch języków (PL/EN):**
+- Prompty debiasingowe dostępne po polsku i angielsku
+- Etykiety UI (Variance Analysis, Debiasing) w wybranym języku
+- Ustawienie języka w `config/user_model.yaml` → `communication_style.preferred_language`
+
+**Kompatybilność z GPT-5.x:**
+- Automatyczna detekcja modeli reasoning (`gpt-5*`, `o1*`, `o3*`, `o4*`)
+- GPT-5.x: `max_completion_tokens` zamiast `max_tokens`
+- GPT-5.x: wyłączenie `temperature` (nieobsługiwane)
+- Pełna kompatybilność wsteczna z GPT-4.x i starszymi
+
+### v1.3.0
 
 **Lokalne modele:**
 - Dodano obsługę LM Studio (OpenAI-compatible API)
@@ -463,7 +476,20 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## Changelog
 
-### v1.2.2
+### v1.4.0
+
+**Bilingual support (PL/EN):**
+- Debiasing prompts available in Polish and English
+- UI labels (Variance Analysis, Debiasing) in selected language
+- Language setting in `config/user_model.yaml` → `communication_style.preferred_language`
+
+**GPT-5.x compatibility:**
+- Auto-detection of reasoning models (`gpt-5*`, `o1*`, `o3*`, `o4*`)
+- GPT-5.x: `max_completion_tokens` instead of `max_tokens`
+- GPT-5.x: disabled `temperature` (not supported)
+- Full backward compatibility with GPT-4.x and older
+
+### v1.3.0
 
 **Local models:**
 - Added LM Studio support (OpenAI-compatible API)

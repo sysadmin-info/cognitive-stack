@@ -195,9 +195,18 @@ class BaseProvider:
 
 
 class OpenAIProvider(BaseProvider):
-    """OpenAI API provider."""
+    """OpenAI API provider (supports both legacy and GPT-5.x models)."""
     
     name: ClassVar[str] = "openai"
+    
+    def _is_reasoning_model(self) -> bool:
+        """Check if model requires reasoning-specific parameters.
+        
+        GPT-5.x and o-series models don't support:
+        - max_tokens (use max_completion_tokens instead)
+        - temperature (only default value 1 is supported)
+        """
+        return self.model.startswith(("gpt-5", "o1", "o3", "o4"))
     
     async def complete(self, messages: list[dict], system: str = "") -> Response:
         headers = {
@@ -212,9 +221,15 @@ class OpenAIProvider(BaseProvider):
         payload = {
             "model": self.model,
             "messages": all_messages,
-            "max_tokens": self.max_tokens,
-            "temperature": self.temperature
         }
+        
+        # GPT-5.x and reasoning models use different parameters
+        if self._is_reasoning_model():
+            payload["max_completion_tokens"] = self.max_tokens
+            # temperature not supported for reasoning models (only default=1)
+        else:
+            payload["max_tokens"] = self.max_tokens
+            payload["temperature"] = self.temperature
         
         try:
             resp = await self._request_with_retry(
