@@ -34,14 +34,34 @@ providers:
     max_tokens: 4096
     temperature: 0.7
 
+  # Opcjonalnie: LM Studio (OpenAI-compatible local server)
+  lmstudio:
+    enabled: true
+    api_key: "${LMSTUDIO_API_KEY:local}"
+    model: "${MODEL_NAME_LM:google/gemma-3-27b}"
+    base_url: "${LMSTUDIO_API_URL:http://169.254.83.107:1234/v1}"
+    max_tokens: 4096
+    temperature: 0.7
+
+  # Opcjonalnie: Anything LLM (OpenAI-compatible)
+  anythingllm:
+    enabled: true
+    api_key: "${ANYTHING_API_KEY:local}"
+    model: "${MODEL_NAME_ANY:qwen3-asteria-14b-128k}"
+    base_url: "${ANYTHING_API_URL:http://169.254.83.107:1234/v1}"
+    max_tokens: 4096
+    temperature: 0.7
+
 # Które modele używać domyślnie w radzie
 default_council:
   - openai
   - anthropic
   - google
+  - lmstudio
+  - anythingllm
 
 # Timeout dla zapytań API (sekundy)
-timeout: 60
+timeout: 360
 
 # Retry przy błędach
-max_retries: 2
+max_retries: 3

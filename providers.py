@@ -19,6 +19,8 @@ __all__ = [
     "AnthropicProvider", 
     "GoogleProvider",
     "OllamaProvider",
+    "LMStudioProvider",
+    "AnythingLLMProvider",
     "create_provider",
     "query_council",
     "sanitize_error",
@@ -362,11 +364,64 @@ class OllamaProvider(BaseProvider):
             return self._make_error_response(e)
 
 
+class LMStudioProvider(BaseProvider):
+    """LM Studio local API provider (OpenAI-compatible)."""
+    
+    name: ClassVar[str] = "lmstudio"
+    
+    async def complete(self, messages: list[dict], system: str = "") -> Response:
+        headers = {"Content-Type": "application/json"}
+        
+        # Add API key if provided (some setups require it)
+        if self.api_key and self.api_key != "local":
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        
+        all_messages = messages.copy()
+        if system:
+            all_messages.insert(0, {"role": "system", "content": system})
+        
+        payload = {
+            "model": self.model,
+            "messages": all_messages,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "stream": False
+        }
+        
+        try:
+            resp = await self._request_with_retry(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            data = resp.json()
+            
+            content = _safe_get(data, "choices", 0, "message", "content", default="")
+            usage = _safe_get(data, "usage")
+            
+            if not content:
+                return self._make_response(error=ERR_EMPTY_RESPONSE)
+            
+            return self._make_response(content=content, usage=usage)
+        
+        except Exception as e:
+            return self._make_error_response(e)
+
+
+class AnythingLLMProvider(LMStudioProvider):
+    """Anything LLM provider (OpenAI-compatible, based on LMStudio)."""
+    
+    name: ClassVar[str] = "anythingllm"
+
+
 PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "google": GoogleProvider,
-    "ollama": OllamaProvider
+    "ollama": OllamaProvider,
+    "lmstudio": LMStudioProvider,
+    "anythingllm": AnythingLLMProvider,
 }
 
 
