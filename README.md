@@ -212,20 +212,13 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## Changelog
 
-### v1.3.0
+### v1.2.2
 
 **Lokalne modele:**
 - Dodano obsługę LM Studio (OpenAI-compatible API)
 - Dodano obsługę Anything LLM (OpenAI-compatible API)
 - Konfigurowalny timeout per-provider dla lokalnych modeli
 - Dokumentacja konfiguracji WSL → Windows
-
-### v1.2.2
-
-**Kompatybilność z GPT-5.x:**
-- OpenAI GPT-5.x wymaga `max_completion_tokens` zamiast `max_tokens`
-- Automatyczne wykrywanie modeli reasoning (`gpt-5*`, `o1*`, `o3*`, `o4*`)
-- Wyłączenie `temperature` dla modeli reasoning
 
 ### v1.2.1
 
@@ -470,20 +463,13 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 
 ## Changelog
 
-### v1.3.0
+### v1.2.2
 
 **Local models:**
 - Added LM Studio support (OpenAI-compatible API)
 - Added Anything LLM support (OpenAI-compatible API)
 - Configurable per-provider timeout for local models
 - WSL → Windows configuration documentation
-
-### v1.2.2
-
-**GPT-5.x compatibility:**
-- OpenAI GPT-5.x requires `max_completion_tokens` instead of `max_tokens`
-- Auto-detection of reasoning models (`gpt-5*`, `o1*`, `o3*`, `o4*`)
-- Disabled `temperature` for reasoning models
 
 ### v1.2.1
 
