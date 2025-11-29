@@ -33,7 +33,7 @@ ethics:
 
 failure_modes:
   - "Overengineering simple solutions"
-  - "Analysis paralysis przy wyborze narzędzi"
+  - "Analysis paralysis when choosing tools"
   
 communication_style:
   preferred_language: "en"  # or "pl"
