@@ -45,7 +45,7 @@ from analyzers import (
     list_available_techniques
 )
 
-__version__ = "1.4.0"
+__version__ = "1.6.0"
 
 # Configure logging
 logging.basicConfig(

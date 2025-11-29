@@ -21,11 +21,6 @@ Projekt inspirowany koncepcją **"Synthetic Cognitive Systems"** - przejście od
 
 Więcej o koncepcji: [LinkedIn - Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via)
 
-
-## Film instruktażowy (po angielsku)
-
-[![Stop trusting one LLM model build your own council](https://i9.ytimg.com/vi/adnPYb1XVt8/mqdefault.jpg?v=6929aa63&sqp=COTcpskG&rs=AOn4CLDtoHz1R50F_tgSajNC4JVfBMuF0Q)](https://www.youtube.com/watch?v=adnPYb1XVt8 "Stop trusting one LLM model build your own council - Click to Watch!")
-
 ### Pięć poziomów stosu kognitywnego:
 
 1. **LLM-Council** - wariancja jako sygnał (gdzie modele się zgadzają = większa pewność)
@@ -41,6 +36,9 @@ cognitive-stack/
 ├── council.py          # Główny CLI entry point
 ├── providers.py        # Klienty API (OpenAI, Anthropic, Google, Ollama, LM Studio)
 ├── analyzers.py        # Analiza wariancji + techniki debiasingu
+├── sonar_client.py     # API client dla SonarQube
+├── feedback_loop.py    # Iteracyjne poprawianie kodu (linters + SonarQube + LLM)
+├── mcp_server.py       # MCP Server dla Claude Code
 ├── config/
 │   ├── providers.yaml  # Konfiguracja providerów API
 │   ├── experts.yaml    # Definicje person ekspertów
@@ -56,6 +54,9 @@ cognitive-stack/
 | `council.py` | Entry point CLI, obsługa argumentów, tryb interaktywny, orkiestracja zapytań |
 | `providers.py` | Async klienty HTTP dla providerów (OpenAI, Anthropic, Google, Ollama, LM Studio, AnythingLLM) |
 | `analyzers.py` | Analiza wariancji między odpowiedziami, 6 technik debiasingu |
+| `sonar_client.py` | API client dla SonarQube - skanowanie, oczekiwanie na wyniki, formatowanie issues |
+| `feedback_loop.py` | Pętla iteracyjna: linters → SonarQube → LLM fix → repeat aż do clean |
+| `mcp_server.py` | MCP Server - integracja z Claude Code (tools: council_query, devils_advocate, sonar_scan) |
 | `config/providers.yaml` | Włączanie/wyłączanie providerów, URL-e, modele, timeouty |
 | `config/experts.yaml` | Persony ekspertów z system promptami i triggerami |
 | `config/user_model.yaml` | Twój profil - cele, ograniczenia, styl komunikacji |
@@ -215,7 +216,98 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 | `reference_class` | Jak to wygląda statystycznie? |
 | `change_mind` | Co zmieniłoby zdanie? |
 
+## MCP Server (integracja z Claude Code)
+
+Cognitive Stack może działać jako serwer MCP (Model Context Protocol) do integracji z Claude Code.
+
+### Instalacja
+
+```bash
+pip install "mcp[cli]>=1.4.0"
+```
+
+### Dostępne narzędzia
+
+| Narzędzie | Opis |
+|-----------|------|
+| `council_query` | Zapytaj wiele LLM-ów z analizą wariancji |
+| `run_debiasing` | Zastosuj techniki debiasingu do decyzji |
+| `devils_advocate` | Security review kodu |
+| `sonar_scan` | Uruchom analizę SonarQube |
+| `iterate_until_clean` | Naprawiaj kod aż SonarQube przejdzie |
+| `list_experts` | Lista dostępnych ekspertów |
+| `list_debiasing_techniques` | Lista technik debiasingu |
+
+### Konfiguracja dla Claude Code
+
+Dodaj do konfiguracji MCP Claude Code (`~/.config/claude-code/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "cognitive-stack": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "/ścieżka/do/cognitive-stack",
+      "env": {
+        "SONAR_URL": "http://localhost:9000",
+        "SONAR_TOKEN": "twój-token"
+      }
+    }
+  }
+}
+```
+
+### Użycie w Claude Code
+
+```
+> /mcp cognitive-stack
+
+> Użyj council_query żeby uzyskać perspektywy na implementację OAuth2
+
+> Użyj devils_advocate do przeglądu mojego kodu Python pod kątem bezpieczeństwa
+
+> Uruchom iterate_until_clean na tym projekcie
+```
+
+### Uruchomienie standalone
+
+```bash
+# Testuj serwer
+python mcp_server.py
+
+# Lub z MCP CLI
+mcp run cognitive-stack
+```
+
 ## Changelog
+
+### v1.6.0
+
+**MCP Server:**
+- Nowy moduł `mcp_server.py` - serwer Model Context Protocol
+- Narzędzia: council_query, run_debiasing, devils_advocate, sonar_scan, iterate_until_clean
+- Zasoby: config://providers, config://experts, config://user_model
+- Prompty: code_review_prompt, decision_analysis_prompt, code_generation_prompt
+- Integracja z Claude Code
+
+### v1.5.0
+
+**SonarQube Integration:**
+- Nowy moduł `sonar_client.py` - API client dla SonarQube
+- Automatyczne skanowanie i oczekiwanie na wyniki
+- Formatowanie issues dla LLM (format zrozumiały dla modeli)
+
+**Feedback Loop:**
+- Nowy moduł `feedback_loop.py` - iteracyjne poprawianie kodu
+- Integracja z linterami (ruff, ansible-lint, tflint)
+- Automatyczne naprawianie kodu przez LLM council
+- Pętla iteracji aż do czystego kodu lub max iteracji
+
+**Obsługiwane języki:**
+- Python (ruff)
+- Ansible (ansible-lint)
+- Terraform (tflint, terraform fmt)
 
 ### v1.4.0
 
@@ -289,10 +381,6 @@ Project inspired by the **"Synthetic Cognitive Systems"** concept - moving from 
 **Key philosophy:** Stop treating AI like a chatbot, start treating it like a designed decision-making process.
 
 More about the concept: [LinkedIn - Synthetic Cognitive Systems](https://www.linkedin.com/posts/pawelpszczesny_ask-three-models-llm-council-is-the-first-activity-7399323058169188352-EaBD?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAACUmdFUByw_8om7AOfbbt_Y2whMI-6rmMmY&utm_campaign=share_via)
-
-## Video walkthrough
-
-[![Stop trusting one LLM model build your own council](https://i9.ytimg.com/vi/adnPYb1XVt8/mqdefault.jpg?v=6929aa63&sqp=COTcpskG&rs=AOn4CLDtoHz1R50F_tgSajNC4JVfBMuF0Q)](https://www.youtube.com/watch?v=adnPYb1XVt8 "Stop trusting one LLM model build your own council - Click to Watch!")
 
 ### Five Levels of the Cognitive Stack:
 
@@ -483,7 +571,98 @@ LMSTUDIO_API_URL=http://169.254.83.107:1234/v1
 | `reference_class` | Statistical comparison |
 | `change_mind` | What would change your mind? |
 
+## MCP Server (Claude Code Integration)
+
+Cognitive Stack can run as an MCP (Model Context Protocol) server for integration with Claude Code.
+
+### Installation
+
+```bash
+pip install "mcp[cli]>=1.4.0"
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `council_query` | Query multiple LLMs with variance analysis |
+| `run_debiasing` | Apply debiasing techniques to decisions |
+| `devils_advocate` | Security-focused code review |
+| `sonar_scan` | Run SonarQube analysis |
+| `iterate_until_clean` | Fix code until SonarQube passes |
+| `list_experts` | List available expert personas |
+| `list_debiasing_techniques` | List debiasing techniques |
+
+### Configuration for Claude Code
+
+Add to your Claude Code MCP configuration (`~/.config/claude-code/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "cognitive-stack": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "/path/to/cognitive-stack",
+      "env": {
+        "SONAR_URL": "http://localhost:9000",
+        "SONAR_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+### Usage in Claude Code
+
+```
+> /mcp cognitive-stack
+
+> Use council_query to get perspectives on implementing OAuth2
+
+> Use devils_advocate to review my Python code for security issues
+
+> Run iterate_until_clean on this project
+```
+
+### Running Standalone
+
+```bash
+# Test the server
+python mcp_server.py
+
+# Or with MCP CLI
+mcp run cognitive-stack
+```
+
 ## Changelog
+
+### v1.6.0
+
+**MCP Server:**
+- New `mcp_server.py` - Model Context Protocol server
+- Tools: council_query, run_debiasing, devils_advocate, sonar_scan, iterate_until_clean
+- Resources: config://providers, config://experts, config://user_model
+- Prompts: code_review_prompt, decision_analysis_prompt, code_generation_prompt
+- Integration with Claude Code
+
+### v1.5.0
+
+**SonarQube Integration:**
+- New `sonar_client.py` module - API client for SonarQube
+- Automatic scanning and waiting for results
+- LLM-friendly issue formatting
+
+**Feedback Loop:**
+- New `feedback_loop.py` module - iterative code fixing
+- Linter integration (ruff, ansible-lint, tflint)
+- Automatic code fixing via LLM council
+- Iteration loop until clean code or max iterations
+
+**Supported languages:**
+- Python (ruff)
+- Ansible (ansible-lint)
+- Terraform (tflint, terraform fmt)
 
 ### v1.4.0
 

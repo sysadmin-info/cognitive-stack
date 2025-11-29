@@ -1,7 +1,5 @@
 # User Model - Twój profil dla systemu kognitywnego
 # Modele używają tego, żeby nie dawać generycznych rad
-# User Model - Your profile for the cognitive system
-# Models use this to avoid giving generic advice
 
 identity:
   name: "Adrian"
@@ -18,14 +16,14 @@ context:
     - "Gravel cycling (Tabou Gravo 3.0)"
 
 goals:
-  - "Process automation without vendor lock-in"
-  - "Infrastructure stability over bleeding edge"
-  - "Understanding mechanisms, not just using tools"
+  - "Automatyzacja procesów bez vendor lock-in"
+  - "Stabilność infrastruktury ponad bleeding edge"
+  - "Zrozumienie mechanizmów, nie tylko użycie narzędzi"
 
 constraints:
-  - "Limited budget for new tools"
-  - "Must work in air-gapped environments"
-  - "Backward compatibility with legacy systems"
+  - "Ograniczony budżet na nowe narzędzia"
+  - "Musi działać w air-gapped environments"
+  - "Kompatybilność wsteczna z legacy systems"
 
 risk_tolerance: "low-to-medium"  # conservative, low, low-to-medium, medium, high, aggressive
 
@@ -39,6 +37,6 @@ failure_modes:
   - "Analysis paralysis przy wyborze narzędzi"
   
 communication_style:
-  preferred_language: "en"  # or "pl"
+  preferred_language: "en"  # lub "en"
   verbosity: "concise"      # verbose, normal, concise
   technical_depth: "expert"  # beginner, intermediate, expert

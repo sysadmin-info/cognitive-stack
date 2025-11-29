@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "cognitive-stack": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "/path/to/cognitive-stack",
+      "env": {
+        "SONAR_URL": "http://localhost:9000",
+        "SONAR_TOKEN": "your-sonar-token",
+        "OPENAI_API_KEY": "your-openai-key",
+        "ANTHROPIC_API_KEY": "your-anthropic-key",
+        "GOOGLE_API_KEY": "your-google-key"
+      }
+    }
+  }
+}
