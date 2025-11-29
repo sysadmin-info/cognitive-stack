@@ -36,6 +36,6 @@ failure_modes:
   - "Analysis paralysis przy wyborze narzędzi"
   
 communication_style:
-  preferred_language: "en"  # lub "en"
+  preferred_language: "en"  # or "pl"
   verbosity: "concise"      # verbose, normal, concise
   technical_depth: "expert"  # beginner, intermediate, expert
